@@ -1,0 +1,3 @@
+const String supabaseURL = "https://nlbsuowxiamhaqwjyyhg.supabase.co";
+const String publicKey =
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sYnN1b3d4aWFtaGFxd2p5eWhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDUwNTI1NzcsImV4cCI6MjA2MDYyODU3N30.F3LSvRwTPhV5ZEgKcoeCHhjeIsEdtioS44pUA9H7yWY";
