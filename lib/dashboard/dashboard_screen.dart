@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:taskhub/app/theme.dart';
 import 'package:taskhub/auth/login_screen.dart';
+import 'package:taskhub/dashboard/task_model.dart';
 import 'task_tile.dart';
 import 'commit_calender.dart';
 import 'task_provider.dart';
@@ -18,7 +19,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    _checkAuthAndFetchTasks();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAuthAndFetchTasks();
+    });
   }
 
   Future<void> _checkAuthAndFetchTasks() async {
@@ -83,6 +86,44 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  void _showEditDialog(BuildContext context, Task task) async {
+    final controller = TextEditingController(text: task.title);
+
+    showDialog(
+      context: context,
+      builder:
+          (dialogContext) => AlertDialog(
+            title: const Text('Edit Task'),
+            content: TextField(
+              controller: controller,
+              autofocus: true,
+              decoration: const InputDecoration(hintText: 'New title'),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final newTitle = controller.text.trim();
+                  if (newTitle.isNotEmpty) {
+                    await Provider.of<TaskProvider>(
+                      context,
+                      listen: false,
+                    ).editTask(task.id, newTitle);
+                  }
+                  if (dialogContext.mounted) {
+                    Navigator.of(dialogContext).pop();
+                  }
+                },
+                child: const Text('Save'),
+              ),
+            ],
+          ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final taskProvider = Provider.of<TaskProvider>(context);
@@ -91,11 +132,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor:
-            Theme.of(context).colorScheme.surface, 
-        elevation: 0, 
-        scrolledUnderElevation: 0, 
-        surfaceTintColor: Colors.transparent, 
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
         forceMaterialTransparency: true,
         title: Text(
           "TaskHub",
@@ -177,6 +217,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           onDelete: () => taskProvider.deleteTask(task.id),
                           onToggleComplete:
                               () => taskProvider.toggleCompleted(task.id),
+                          onEdit: () => _showEditDialog(context, task),
                         );
                       },
                     ),

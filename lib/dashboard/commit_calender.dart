@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'task_model.dart';
 import 'task_provider.dart';
 
@@ -12,46 +13,73 @@ class CommitCalendar extends StatefulWidget {
 }
 
 class _CommitCalendarState extends State<CommitCalendar> {
-  Map<DateTime, int> _completedTasks = {};
+  final supabase = Supabase.instance.client;
+  Map<DateTime, int> _completionCounts = {};
   late DateTime _currentMonth;
 
   @override
   void initState() {
     super.initState();
     _currentMonth = DateTime.now();
+    _fetchCompletionCounts();
+    _setupRealtimeUpdates();
   }
 
-  void _updateCompletedTasks(List<Task> tasks) {
-    final completedTasks = <DateTime, int>{};
-    
-    for (final task in tasks) {
-      if (!task.isCompleted) continue;
-      
-      final date = task.createdAt.toLocal();
+  Future<void> _fetchCompletionCounts() async {
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return;
+
+    final firstDay = DateTime(_currentMonth.year, _currentMonth.month, 1);
+    final lastDay = DateTime(_currentMonth.year, _currentMonth.month + 1, 0);
+
+    final response = await supabase
+        .from('tasks')
+        .select('created_at')
+        .eq('user_id', userId)
+        .eq('is_completed', true)
+        .gte('created_at', firstDay.toIso8601String())
+        .lte('created_at', lastDay.toIso8601String());
+
+    final counts = <DateTime, int>{};
+    for (final task in response) {
+      final date = DateTime.parse(task['created_at'] as String).toLocal();
       final dateOnly = DateTime(date.year, date.month, date.day);
-      completedTasks.update(
-        dateOnly,
-        (count) => count + 1,
-        ifAbsent: () => 1,
-      );
+      counts.update(dateOnly, (count) => count + 1, ifAbsent: () => 1);
     }
 
-    setState(() {
-      _completedTasks = completedTasks;
-    });
+    if (mounted) setState(() => _completionCounts = counts);
+  }
+
+  void refresh() async {
+    await _fetchCompletionCounts();
+  }
+
+  void _setupRealtimeUpdates() {
+    supabase
+        .channel('tasks')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'tasks',
+          callback: (_) => _fetchCompletionCounts(),
+        )
+        .subscribe();
+  }
+
+  @override
+  void dispose() {
+    supabase.removeAllChannels();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final taskProvider = Provider.of<TaskProvider>(context);
-    _updateCompletedTasks(taskProvider.tasks);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       elevation: 1,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
         child: Column(
@@ -101,7 +129,8 @@ class _CommitCalendarState extends State<CommitCalendar> {
       padding: EdgeInsets.zero,
       childAspectRatio: 1.1,
       children: List.generate(42, (index) {
-        if (index < firstWeekday - 1 || index >= firstWeekday - 1 + daysInMonth) {
+        if (index < firstWeekday - 1 ||
+            index >= firstWeekday - 1 + daysInMonth) {
           return const SizedBox.shrink();
         }
         final day = index - firstWeekday + 2;
@@ -112,35 +141,37 @@ class _CommitCalendarState extends State<CommitCalendar> {
   }
 
   Widget _buildDaySquare(DateTime date) {
-    final completedCount = _completedTasks[date] ?? 0;
+    final completedCount = _completionCounts[date] ?? 0;
     final isToday = date.isSameDate(DateTime.now());
-    
+
     Color color;
     if (completedCount == 0) {
-      color = Theme.of(context).colorScheme.primaryContainer.withOpacity(0.8);
+      color = Theme.of(context).colorScheme.primary.withOpacity(0.2);
     } else if (completedCount == 1) {
-      color = Theme.of(context).colorScheme.primaryContainer;
-    } else if (completedCount <= 3) {
-      color = Theme.of(context).colorScheme.primary.withOpacity(0.8);
+      color = Theme.of(context).colorScheme.primary.withOpacity(0.4);
+    } else if (completedCount == 2) {
+      color = Theme.of(context).colorScheme.primary.withOpacity(0.6);
     } else {
       color = Theme.of(context).colorScheme.primary;
     }
 
     return Tooltip(
-      message: completedCount == 0
-          ? 'No completed tasks'
-          : '$completedCount completed task${completedCount > 1 ? 's' : ''}',
+      message:
+          completedCount == 0
+              ? 'No completed tasks'
+              : '$completedCount completed task${completedCount > 1 ? "s" : ""}',
       child: Container(
         margin: const EdgeInsets.all(2),
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: color,
-          border: isToday
-              ? Border.all(
-                  color: Theme.of(context).colorScheme.primary, 
-                  width: 1.5,
-                )
-              : null,
+          border:
+              isToday
+                  ? Border.all(
+                    color: Theme.of(context).colorScheme.primary,
+                    width: 1.5,
+                  )
+                  : null,
         ),
         child: Center(
           child: Text(
@@ -165,9 +196,17 @@ class _CommitCalendarState extends State<CommitCalendar> {
           Text('Less', style: TextStyle(fontSize: 10, color: Colors.grey[600])),
           Row(
             children: [
-              _LegendSquare(color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.8)),
-              _LegendSquare(color: Theme.of(context).colorScheme.primaryContainer),
-              _LegendSquare(color: Theme.of(context).colorScheme.primary.withOpacity(0.8)),
+              _LegendSquare(
+                color: Theme.of(
+                  context,
+                ).colorScheme.primaryContainer.withOpacity(0.8),
+              ),
+              _LegendSquare(
+                color: Theme.of(context).colorScheme.primaryContainer,
+              ),
+              _LegendSquare(
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.8),
+              ),
               _LegendSquare(color: Theme.of(context).colorScheme.primary),
             ],
           ),
@@ -189,10 +228,7 @@ class _LegendSquare extends StatelessWidget {
       width: 10,
       height: 10,
       margin: const EdgeInsets.symmetric(horizontal: 2),
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-      ),
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
     );
   }
 }

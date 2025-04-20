@@ -5,12 +5,14 @@ class TaskTile extends StatelessWidget {
   final Task task;
   final VoidCallback onDelete;
   final VoidCallback onToggleComplete;
+  final VoidCallback onEdit;
 
   const TaskTile({
     super.key,
     required this.task,
     required this.onDelete,
     required this.onToggleComplete,
+    required this.onEdit,
   });
 
   @override
@@ -95,6 +97,15 @@ class TaskTile extends StatelessWidget {
                     ),
                   ],
                 ),
+              ),
+              IconButton(
+                icon: Icon(
+                  Icons.edit_outlined,
+                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                ),
+                onPressed: onEdit,
+                splashRadius: 20,
+                tooltip: 'Delete task',
               ),
               IconButton(
                 icon: Icon(

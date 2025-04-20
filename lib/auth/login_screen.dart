@@ -38,7 +38,7 @@ class _LoginScreenState extends State<LoginScreen> {
         setState(() => _error = "Invalid email or password");
       }
     } catch (e) {
-      setState(() => _error = e.toString().replaceAll('Exception: ', ''));
+      setState(() => _error = "You need to sign-in first.");
     } finally {
       if (mounted) setState(() => _loading = false);
     }

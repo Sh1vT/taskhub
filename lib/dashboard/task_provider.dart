@@ -6,31 +6,37 @@ class TaskProvider with ChangeNotifier {
   bool _isLoading = false;
   final SupabaseClient supabase;
   List<Task> _tasks = [];
+  bool _isInitialized = false;
 
   TaskProvider(this.supabase);
 
   List<Task> get tasks => _tasks;
-
   bool get isLoading => _isLoading;
 
+  Future<void> initialize() async {
+    if (_isInitialized) return;
+    await fetchTasks();
+    _isInitialized = true;
+  }
+
   Future<void> fetchTasks({bool showCompleted = false}) async {
+    if (_isLoading) return;
+
     _isLoading = true;
     notifyListeners();
+
     try {
       final userId = supabase.auth.currentUser?.id;
       if (userId == null) return;
 
       final query = supabase.from('tasks').select().eq('user_id', userId);
-
-      if (!showCompleted) {
-        query.eq('is_completed', false);
-      }
+      if (!showCompleted) query.eq('is_completed', false);
 
       final response = await query;
       _tasks = response.map<Task>((task) => Task.fromMap(task)).toList();
-      notifyListeners();
     } catch (e) {
-      debugPrint(e.toString());
+      debugPrint('TaskProvider Error: $e');
+      rethrow;
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -67,4 +73,17 @@ class TaskProvider with ChangeNotifier {
     await supabase.from('tasks').delete().eq('id', id);
     await fetchTasks();
   }
+
+  Future<void> editTask(int id, String newTitle) async {
+    if (newTitle.trim().isEmpty) return;
+
+    await supabase
+        .from('tasks')
+        .update({'title': newTitle.trim()})
+        .eq('id', id);
+
+    await fetchTasks();
+  }
+
+  bool get mounted => _isInitialized;
 }
