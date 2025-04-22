@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'task_model.dart';
-import 'task_provider.dart';
+import '../task_provider.dart';
 
 class CommitCalendar extends StatefulWidget {
   const CommitCalendar({super.key});
@@ -175,7 +174,7 @@ class _CommitCalendarState extends State<CommitCalendar> {
         ),
         child: Center(
           child: Text(
-            date.day.toString(),
+            "",
             style: TextStyle(
               fontSize: 11,
               color: completedCount > 0 ? Colors.white : Colors.grey[600],

@@ -35,6 +35,7 @@ class MyApp extends StatelessWidget {
     final themeProvider = Provider.of<ThemeProvider>(context);
 
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'TaskHub',
       theme: ThemeData.light(),
       darkTheme: ThemeData.dark(),
